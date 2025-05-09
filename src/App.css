@@ -1,0 +1,56 @@
+.container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+h1 {
+  text-align: center;
+  color: #2d6cdf;
+}
+textarea {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 1rem;
+  resize: vertical;
+}
+button {
+  background: #2d6cdf;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 1.5rem;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #1b4e9b;
+}
+.story-output {
+  background: #f7faff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 1px 6px rgba(45, 108, 223, 0.07);
+}
+.toggle {
+  margin: 1rem 0;
+}
+pre {
+  background: #e9eef6;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  overflow-x: auto;
+}
+ul {
+  margin: 0.5rem 0 0 1.5rem;
+}
