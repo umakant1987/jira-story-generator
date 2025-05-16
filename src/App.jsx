@@ -10,7 +10,7 @@ async function generateStoryAI(task, type) {
   if (type === "Bug") {
     prompt = `You are a Jira expert. Given the following bug report, generate a Jira bug in this format:\n\nTitle: <short title>\nDescription: <detailed bug description>\nSteps to Reproduce:\n1. ...\n2. ...\nExpected Result:\n...\nActual Result:\n...\n\nBug: ${task}`;
   } else {
-    prompt = `You are a Jira expert. Given the following task, generate a Jira story in this format:\n\nTitle: <short title>\nDescription: As a <role>, I want <feature>, so that <benefit>.\nAcceptance Criteria (bullets):\n- ...\n- ...\nAcceptance Criteria (Gherkin):\nGiven ...\nWhen ...\nThen ...\n\nTask: ${task}`;
+    prompt = `You are a Jira expert. Given the following task, generate a Jira story in this format:\n\nTitle: <short title>\nDescription: As a <role>, I want <feature>, so that <benefit>.\nAcceptance Criteria (bullets):\n- ...\n- ...\n- ...\nAcceptance Criteria (Gherkin):\nGiven ...\nWhen ...\nThen ...\n\nALWAYS use the 'As a <role>, I want <feature>, so that <benefit>.' format for the description.\nALWAYS provide at least 3 acceptance criteria in both bullet and Gherkin formats.\n\nTask: ${task}`;
   }
 
   const response = await axios.post(
@@ -34,7 +34,7 @@ async function generateStoryAI(task, type) {
   return response.data.choices[0].message.content;
 }
 
-function parseAIResponse(aiText, type) {
+function parseAIResponse(aiText, type, task) {
   const lines = aiText.split("\n");
   if (type === "Bug") {
     let title = "",
@@ -100,6 +100,24 @@ function parseAIResponse(aiText, type) {
         gherkin.push(line.trim());
       }
     }
+    // Fallbacks if missing
+    if (!description) {
+      description = `As a user, I want to ${task}, so that I can achieve my goal.`;
+    }
+    if (!bullets || bullets.length < 3) {
+      bullets = [
+        `The feature allows the user to ${task.toLowerCase()}.`,
+        "The implementation meets the described requirements.",
+        "All edge cases are handled.",
+      ];
+    }
+    if (!gherkin || gherkin.length < 3) {
+      gherkin = [
+        `Given the user wants to ${task.toLowerCase()},`,
+        `When the user performs the necessary actions,`,
+        `Then the system should allow the user to ${task.toLowerCase()} successfully.`,
+      ];
+    }
     return {
       title,
       description,
@@ -160,7 +178,7 @@ export default function App() {
     try {
       if (OPENAI_API_KEY) {
         const aiText = await generateStoryAI(task.trim(), type);
-        setStory(parseAIResponse(aiText, type));
+        setStory(parseAIResponse(aiText, type, task.trim()));
       } else {
         setStory(generateStoryFallback(task.trim(), type));
       }
