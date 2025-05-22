@@ -10,7 +10,7 @@ async function generateStoryAI(task, type) {
   if (type === "Bug") {
     prompt = `You are a Jira expert. Given the following bug report, generate a Jira bug in this format:\n\nTitle: <short title>\nDescription: <detailed bug description>\nSteps to Reproduce:\n1. ...\n2. ...\nExpected Result:\n...\nActual Result:\n...\n\nBug: ${task}`;
   } else {
-    prompt = `You are a Jira expert. Given the following task, generate a Jira story in this format:\n\nTitle: <short title>\nDescription: As a <role>, I want <feature>, so that <benefit>.\nAcceptance Criteria (bullets):\n- ...\n- ...\n- ...\nAcceptance Criteria (Gherkin):\nGiven ...\nWhen ...\nThen ...\n\nALWAYS use the 'As a <role>, I want <feature>, so that <benefit>.' format for the description.\nALWAYS provide at least 3 acceptance criteria in both bullet and Gherkin formats.\n\nTask: ${task}`;
+    prompt = `You are a senior Jira product owner and QA expert. Given the following user story request, generate a highly detailed and realistic Jira story in this format:\n\nTitle: <short, specific, and meaningful title>\nDescription: As a <role>, I want <feature>, so that <business value/benefit>.\nAcceptance Criteria (bullets):\n- Write 3 to 7 specific, practical, and realistic acceptance criteria.\n- Cover positive, negative, edge, error, security, usability, and accessibility cases as appropriate.\n- Each criterion must be concrete, measurable, and avoid generic phrases like 'all edge cases are handled', 'the feature is tested', 'security is ensured', or similar. Do not use these or similar generic statements.\n- For example, for a login story, include criteria for valid login, invalid credentials, locked account, password requirements, error messages, accessibility, and security (e.g., rate limiting, password masking).\nAcceptance Criteria (Gherkin):\nGiven ...\nWhen ...\nThen ...\n(Provide a Gherkin scenario for each acceptance criterion above, matching the details.)\n\nTask: ${task}\n\nIf the story is simple, fewer criteria are acceptable, but each must be specific and non-generic. Think like a human product owner and QA. Consider the business context, user journey, and practical scenarios. Do not use placeholders or generic text.`;
   }
 
   const response = await axios.post(
@@ -21,7 +21,7 @@ async function generateStoryAI(task, type) {
         { role: "system", content: "You are a helpful assistant." },
         { role: "user", content: prompt },
       ],
-      max_tokens: 400,
+      max_tokens: 800,
       temperature: 0.4,
     },
     {
@@ -85,12 +85,20 @@ function parseAIResponse(aiText, type, task) {
       } else if (line.startsWith("Description:")) {
         description = line.replace("Description:", "").trim();
         mode = "";
-      } else if (line.toLowerCase().includes("acceptance criteria (bullets)")) {
-        mode = "bullets";
-      } else if (line.toLowerCase().includes("acceptance criteria (gherkin)")) {
+      } else if (
+        line.toLowerCase().includes("acceptance criteria") &&
+        line.toLowerCase().includes("gherkin")
+      ) {
         mode = "gherkin";
-      } else if (mode === "bullets" && line.trim().startsWith("- ")) {
-        bullets.push(line.replace("- ", "").trim());
+      } else if (line.toLowerCase().includes("acceptance criteria")) {
+        mode = "bullets";
+      } else if (
+        mode === "bullets" &&
+        (line.trim().startsWith("-") ||
+          line.trim().startsWith("*") ||
+          /^\d+\./.test(line.trim()))
+      ) {
+        bullets.push(line.replace(/^[-*]\s*|^\d+\.\s*/, "").trim());
       } else if (
         mode === "gherkin" &&
         (line.trim().toLowerCase().startsWith("given") ||
@@ -100,23 +108,30 @@ function parseAIResponse(aiText, type, task) {
         gherkin.push(line.trim());
       }
     }
-    // Fallbacks if missing
-    if (!description) {
-      description = `As a user, I want to ${task}, so that I can achieve my goal.`;
-    }
-    if (!bullets || bullets.length < 3) {
-      bullets = [
-        `The feature allows the user to ${task.toLowerCase()}.`,
-        "The implementation meets the described requirements.",
-        "All edge cases are handled.",
-      ];
-    }
-    if (!gherkin || gherkin.length < 3) {
-      gherkin = [
-        `Given the user wants to ${task.toLowerCase()},`,
-        `When the user performs the necessary actions,`,
-        `Then the system should allow the user to ${task.toLowerCase()} successfully.`,
-      ];
+    // Only use fallback if the AI response is completely missing
+    const isInsufficient =
+      !title || !description || bullets.length < 5 || gherkin.length < 5;
+    if (isInsufficient) {
+      return {
+        title: title || `Implement: ${task}`,
+        description:
+          description ||
+          `As a user, I want to ${task}, so that I can achieve my goal.`,
+        acceptanceBullets:
+          bullets.length > 0
+            ? bullets
+            : [
+                "No acceptance criteria were generated by the AI. Please revise your input or try again.",
+              ],
+        acceptanceGherkin:
+          gherkin.length > 0
+            ? gherkin
+            : [
+                "No Gherkin scenarios were generated by the AI. Please revise your input or try again.",
+              ],
+        type,
+        warning: "AI response was insufficient. Some fields were auto-filled.",
+      };
     }
     return {
       title,
